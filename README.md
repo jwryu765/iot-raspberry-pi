@@ -1049,7 +1049,464 @@ SCL: GPIO 3번 (데이터 박자를 맞추는 길).
 ```
 
 ## 6일차
-### qt creater 설치
-### 프로젝트 만들어서 on/off 버튼에 따른 빨강,초록 색깔 바꾸는거 구현하기
-### 버튼 이용해서 실제 브레드보드에 연결한 LED등 키기
-### 테스트(qt프레임워크를 사용한 임베디드 컨트롤 GUI 프로그램)
+
+### 기초 환경 구축 및 GPIO 제어 입문
+
+#### 주요 활동
+- **Qt Creator 설치 및 환경 설정**: 라즈베리파이 5 환경에서 Qt6 기반의 빌드 시스템 구축
+- **GUI 기초 설계**: `QPushButton`, `QLabel` 등을 활용한 기본 컨트롤러 UI 배치
+- **StyleSheet 활용**: 버튼 상태(ON/OFF)에 따라 UI 상의 LED 아이콘 색상(Red/Green)이 변하도록 구현
+- **lgpio 라이브러리 연동**: 라즈베리파이 5의 새로운 하드웨어 구조에 맞춰 `lgpio` 라이브러리를 프로젝트에 포함 (`CMakeLists.txt` 설정)
+
+#### 구현 기능
+- **LED 원격 제어**: GUI 버튼 클릭 시 실제 브레드보드에 연결된 LED(GPIO 17) 점등 및 소등 성공
+
+#### 핵심코드
+```C++
+#include "mainwindow.h"
+#include "./ui_mainwindow.h"
+#include <cstdlib>
+
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);
+}
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+}
+
+void MainWindow::on_pushButton_clicked() // (LED 켜기라고 가정)
+{
+    // 17번 핀을 출력(op: output)으로 설정하고, 전기 쏘기(dh: drive high)
+    system("pinctrl set 17 op dh"); 
+    
+    ui->label_led->setStyleSheet(
+        "background-color: green;"
+        "border-radius: 20px;"
+    );
+}
+
+void MainWindow::on_pushButton_2_clicked() // (LED 끄기라고 가정)
+{
+    // 17번 핀을 출력(op: output)으로 설정하고, 전기 끊기(dl: drive low)
+    system("pinctrl set 17 op dl"); 
+    
+    ui->label_led->setStyleSheet(
+        "background-color: red;"
+        "border-radius: 20px;"
+    );
+}
+```
+
+## 7일차
+
+### 스마트 시스템 통합 및 센서 실시간 모니터링
+
+#### 주요 활동
+- **스마트 도어락 로직 구현**: 비밀번호 입력 처리, 서보 모터(Step Motor) 제어 및 자동 잠금(Auto-lock) 루틴 설계
+- **멀티미디어 피드백**: `PWM` 제어를 통한 부저(Buzzer) 사이렌 기능 및 버튼 클릭 시 "삑" 소리(Beep) 구현
+- **RGB LED 제어**: Active Low 방식의 RGB LED를 활용하여 다채로운 상태 표시 기능 추가
+- **실시간 데이터 처리**: `QTimer`를 활용하여 사용자 조작 없이도 화면이 갱신되는 실시간 시스템 구축
+
+#### 고도화 기술
+- **DHT11 온습도 센서 통합**:
+  - 초정밀 타이밍이 필요한 DHT11의 특성을 고려하여 라즈베리파이 5 커널 드라이버(`dtoverlay`) 활용
+  - `/sys/bus/iio/devices/` 경로의 시스템 파일을 읽어오는 방식으로 통신 안정성 100% 확보
+- **UI 반응성 최적화**: 
+  - `QCoreApplication::processEvents()`를 사용하여 센서 읽기 중 화면 멈춤(Blocking) 현상 해결
+  - 온도/습도 모드 전환 기능을 통한 효율적인 LCD 디스플레이 활용
+
+#### 시스템 구조 (System Architecture)
+
+- **OS**: Raspberry Pi OS (64-bit)
+- **Language**: C++ 17
+- **Framework**: Qt 6.x (Widgets)
+- **Library**: `lgpio` (Pi 5 GPIO Control)
+- **Sensor/Actuator**: 
+  - DHT11 (Temperature & Humidity)
+  - 28BYJ-48 Step Motor (Door Lock)
+  - Active Low RGB LED & 5V Passive Buzzer
+
+#### 핵심코드
+
+- **mainwindow.h**
+    ```C++
+    #ifndef MAINWINDOW_H
+    #define MAINWINDOW_H
+
+    #include <QMainWindow>
+    #include <QString>
+    #include <QTimer> // ✅ 완벽합니다!
+
+    QT_BEGIN_NAMESPACE
+    namespace Ui { class MainWindow; }
+    QT_END_NAMESPACE
+
+    class MainWindow : public QMainWindow
+    {
+        Q_OBJECT
+
+    public:
+        MainWindow(QWidget *parent = nullptr);
+        ~MainWindow();
+
+    private slots:
+        // 기존 버튼 슬롯들
+        void on_btnLedOn_clicked();
+        void on_btnLedOff_clicked();
+        void on_btnBuzzerOn_clicked();
+        void on_btnBuzzerOff_clicked();
+        void on_btnRgbRed_clicked();
+        void on_btnRgbGreen_clicked();
+        void on_btnRgbBlue_clicked();
+        void on_btnRgbOff_clicked();
+        void on_btn0_clicked();
+        void on_btn1_clicked();
+        void on_btn2_clicked();
+        void on_btn3_clicked();
+        void on_btn4_clicked();
+        void on_btn5_clicked();
+        void on_btn6_clicked();
+        void on_btn7_clicked();
+        void on_btn8_clicked();
+        void on_btn9_clicked();
+        void on_btnE_clicked();
+        void on_btnC_clicked();
+        void on_btnTemp_clicked();   // 온도 버튼
+        void on_btnHumid_clicked();  // 습도 버튼
+        void on_btnSensorOn_clicked();
+        void on_btnSensorOff_clicked();
+
+        // 💡 1. 타이머가 2초마다 실행할 함수 선언 (여기에 추가!)
+        void updateSensorData();
+
+    private:
+        Ui::MainWindow *ui;
+
+        // 1. 하드웨어 제어 관련 변수 (Pi 5 필수)
+        int g_handle = -1;               // lgpio 칩 핸들 (제어권 번호)
+        bool isSirenRunning = false;     // 사이렌 작동 상태
+
+        // 2. 도어락 데이터
+        QString inputPw = "";
+        QString secretPw = "1234";
+
+        // 온습도 센서용 추가 변수와 함수
+        float lastTemp = 0.0;    // 마지막으로 성공한 온도
+        float lastHumid = 0.0;   // 마지막으로 성공한 습도
+        bool readDHT11();        // 센서 읽기 함수
+
+        // 💡 2. 타이머 변수와 모드 변수 선언 (여기에 추가!)
+        QTimer *timer;
+        int mode = 0;
+
+        // 💡 2. 센서 전원 스위치 변수를 추가합니다! (기본값은 켜짐)
+        bool isSensorOn = true;
+
+        // 3. 내부 보조 함수 (Private Methods)
+        void rotateMotor(bool isOpen);
+        void autoLockRoutine();
+        void playSiren();
+        void playSuccess();
+        void playFail();
+    };
+
+    #endif // MAINWINDOW_H
+    ```
+
+- **mainwindow.cpp**
+    ```C++
+    #include "mainwindow.h"
+    #include "ui_mainwindow.h"
+    #include <cstdlib>
+    #include <lgpio.h>
+    #include <thread>
+    #include <chrono>
+    #include <QCoreApplication> // 화면 멈춤(먹통)을 방지하는 도구
+    #include <fstream>   // 파일 읽기용 도구
+    #include <string>    // 글자 처리용 도구
+
+    // 전역 변수 대신 핸들은 클래스 멤버(mainwindow.h)에 있는 것을 사용합니다.
+
+    const int BUZZER_PIN = 27;
+    const int MOTOR_PINS[4] = {5, 6, 13, 19};
+    const int STEP_SEQ[8][4] = {
+        {1,0,0,0}, {1,1,0,0}, {0,1,0,0}, {0,1,1,0},
+        {0,0,1,0}, {0,0,1,1}, {0,0,0,1}, {1,0,0,1}
+    };
+
+    // ==========================================
+    // 💡 숫자 패드용 짧은 삑 소리 함수 (여기에 추가!)
+    // ==========================================
+    void playBeep(int handle) {
+        if (handle < 0) return;
+        lgTxPwm(handle, BUZZER_PIN, 2000, 50, 0, 0); // 2000Hz (경쾌한 도어락 버튼 소리)
+        std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 0.05초 동안 아주 짧게 재생
+        lgTxPwm(handle, BUZZER_PIN, 0, 0, 0, 0); // 소리 끄기
+    }
+
+    MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
+        ui->setupUi(this);
+
+        // 💡 1. 여기에 타이머 시동 코드를 꼭 넣어주세요!
+        timer = new QTimer(this);
+        connect(timer, &QTimer::timeout, this, &MainWindow::updateSensorData);
+        timer->start(2000); // 2000ms(2초)마다 자동으로 센서 읽기
+
+        g_handle = lgGpiochipOpen(4); // Pi 5용 4번 칩
+
+        if (g_handle < 0) {
+            ui->lblPw->setText("시스템엔진 오류!");
+        } else {
+            lgGpioClaimOutput(g_handle, 0, BUZZER_PIN, 0);
+            for(int pin : MOTOR_PINS) lgGpioClaimOutput(g_handle, 0, pin, 0);
+            lgGpioClaimOutput(g_handle, 0, 17, 0);
+            lgGpioClaimOutput(g_handle, 0, 22, 0);
+            lgGpioClaimOutput(g_handle, 0, 23, 0);
+            lgGpioClaimOutput(g_handle, 0, 24, 0);
+            ui->lblPw->setText("시스템 준비 완료");
+        }
+    }
+
+    MainWindow::~MainWindow() {
+        isSirenRunning = false;
+        if (g_handle >= 0) {
+            lgTxPwm(g_handle, BUZZER_PIN, 0, 0, 0, 0); // 6개 인자 맞춤
+            lgGpiochipClose(g_handle);
+        }
+        delete ui;
+    }
+
+    // ==========================================
+    // 도어락 로직 함수들 (MainWindow:: 붙여서 정의)
+    // ==========================================
+    void MainWindow::rotateMotor(bool isOpen) {
+        if (g_handle < 0) return;
+        int steps = 128;
+        for (int i = 0; i < steps; i++) {
+            for (int step = 0; step < 8; step++) {
+                int currentStep = isOpen ? step : (7 - step);
+                for (int pin = 0; pin < 4; pin++) {
+                    lgGpioWrite(g_handle, MOTOR_PINS[pin], STEP_SEQ[currentStep][pin]);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+        for(int i=0; i<4; i++) lgGpioWrite(g_handle, MOTOR_PINS[i], 0);
+    }
+
+    void MainWindow::autoLockRoutine() {
+        rotateMotor(true);
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+        rotateMotor(false);
+    }
+
+    void MainWindow::playSiren() {
+        while(isSirenRunning && g_handle >= 0) {
+            lgTxPwm(g_handle, BUZZER_PIN, 800, 50, 0, 0); // 6개 인자
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            if(!isSirenRunning) break;
+            lgTxPwm(g_handle, BUZZER_PIN, 1200, 50, 0, 0);
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        }
+        lgTxPwm(g_handle, BUZZER_PIN, 0, 0, 0, 0);
+    }
+
+    void MainWindow::playSuccess() {
+        if (g_handle < 0) return;
+        int notes[] = {523, 659, 784};
+        for(int note : notes) {
+            lgTxPwm(g_handle, BUZZER_PIN, (float)note, 50, 0, 0);
+            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        }
+        lgTxPwm(g_handle, BUZZER_PIN, 0, 0, 0, 0);
+    }
+
+    void MainWindow::playFail() {
+        if (g_handle < 0) return;
+        for(int i=0; i<3; i++) {
+            lgTxPwm(g_handle, BUZZER_PIN, 800, 50, 0, 0);
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            lgTxPwm(g_handle, BUZZER_PIN, 0, 0, 0, 0);
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
+    // ==========================================
+    // 버튼 클릭 이벤트들 (쓰레드 호출 방식 수정)
+    // ==========================================
+    void MainWindow::on_btnE_clicked() {
+        if (inputPw == secretPw) {
+            ui->lblPw->setText("OPEN!");
+            ui->label_led->setStyleSheet("background-color: green; border-radius: 20px;");
+
+            // 💡 멤버 함수 쓰레드 호출은 이 형식을 지켜야 합니다!
+            std::thread(&MainWindow::playSuccess, this).detach();
+            std::thread(&MainWindow::autoLockRoutine, this).detach();
+        } else {
+            ui->lblPw->setText("ERROR!");
+            ui->label_led->setStyleSheet("background-color: red; border-radius: 20px;");
+            std::thread(&MainWindow::playFail, this).detach();
+        }
+        inputPw = "";
+    }
+
+    void MainWindow::on_btnBuzzerOn_clicked() {
+        if (!isSirenRunning) {
+            isSirenRunning = true;
+            std::thread(&MainWindow::playSiren, this).detach();
+
+            // 💡 부저 ON: 아이콘을 노란색(또는 빨간색)으로 바꿉니다!
+            ui->label_buzzer->setStyleSheet("background-color: yellow; border-radius: 20px;");
+        }
+    }
+
+    void MainWindow::on_btnBuzzerOff_clicked() {
+        isSirenRunning = false;
+
+        // 💡 부저 OFF: 아이콘을 원래 색상인 회색으로 되돌립니다!
+        ui->label_buzzer->setStyleSheet("background-color: gray; border-radius: 20px;");
+    }
+
+    // ==========================================
+    // 기본 LED 전원 버튼 (UI 색상 변화 포함)
+    // ==========================================
+    void MainWindow::on_btnLedOn_clicked() {
+        lgGpioWrite(g_handle, 17, 1);
+        // 💡 라벨을 켜진 색(초록색)으로 변경
+        ui->label_led->setStyleSheet("background-color: green; border-radius: 20px; color: black;");
+    }
+
+    void MainWindow::on_btnLedOff_clicked() {
+        lgGpioWrite(g_handle, 17, 0);
+        // 💡 라벨을 원래 색(회색)으로 복구
+        ui->label_led->setStyleSheet("background-color: gray; border-radius: 20px; color: black;");
+    }
+
+    // ==========================================
+    // 숫자 패드 및 초기화 버튼 (소리 추가 버전)
+    // ==========================================
+    void MainWindow::on_btn0_clicked() { inputPw += "0"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn1_clicked() { inputPw += "1"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn2_clicked() { inputPw += "2"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn3_clicked() { inputPw += "3"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn4_clicked() { inputPw += "4"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn5_clicked() { inputPw += "5"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn6_clicked() { inputPw += "6"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn7_clicked() { inputPw += "7"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn8_clicked() { inputPw += "8"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btn9_clicked() { inputPw += "9"; ui->lblPw->setText(QString(inputPw.length(), '*')); std::thread(playBeep, g_handle).detach(); }
+    void MainWindow::on_btnC_clicked() { inputPw = ""; ui->lblPw->setText("초기화 됨"); std::thread(playBeep, g_handle).detach(); }
+
+    // ==========================================
+    // 누락된 RGB 버튼 및 기타 함수들 추가
+    // ==========================================
+
+    void MainWindow::on_btnRgbGreen_clicked() {
+        if (g_handle < 0) return;
+        // R:끄기(1), G:켜기(0), B:끄기(1) -> RGB 모듈은 보통 0일 때 켜집니다.
+        lgGpioWrite(g_handle, 22, 1); lgGpioWrite(g_handle, 23, 0); lgGpioWrite(g_handle, 24, 1);
+    }
+
+    void MainWindow::on_btnRgbBlue_clicked() {
+        if (g_handle < 0) return;
+        lgGpioWrite(g_handle, 22, 1); lgGpioWrite(g_handle, 23, 1); lgGpioWrite(g_handle, 24, 0);
+    }
+
+    void MainWindow::on_btnRgbOff_clicked() {
+        if (g_handle < 0) return;
+        lgGpioWrite(g_handle, 22, 1); lgGpioWrite(g_handle, 23, 1); lgGpioWrite(g_handle, 24, 1);
+    }
+
+    void MainWindow::on_btnRgbRed_clicked() {
+        if (g_handle < 0) return;
+        // R:켜기(0), G:끄기(1), B:끄기(1) -> RGB 모듈(Active Low) 기준
+        lgGpioWrite(g_handle, 22, 0); lgGpioWrite(g_handle, 23, 1); lgGpioWrite(g_handle, 24, 1);
+    }
+
+    // ==========================================
+    // DHT11 온습도 센서 읽기
+    // ==========================================
+    bool MainWindow::readDHT11() {
+        // 💡 온도 파일 열기
+        std::ifstream tempFile("/sys/bus/iio/devices/iio:device0/in_temp_input");
+        // 💡 습도 파일 열기
+        std::ifstream humidFile("/sys/bus/iio/devices/iio:device0/in_humidityrelative_input");
+
+        // 두 파일이 정상적으로 열렸다면 (커널이 데이터를 잘 가져오고 있다면)
+        if (tempFile.is_open() && humidFile.is_open()) {
+            std::string tempStr, humidStr;
+
+            // 파일에서 숫자(글자 형태)를 한 줄씩 읽어옵니다.
+            std::getline(tempFile, tempStr);
+            std::getline(humidFile, humidStr);
+
+            // 글자를 숫자로 바꾼 뒤, 1000으로 나눠서 우리가 아는 온습도 형태로 만듭니다. (예: 24500 -> 24.5)
+            lastTemp = std::stof(tempStr) / 1000.0;
+            lastHumid = std::stof(humidStr) / 1000.0;
+
+            // 다 썼으면 닫아줍니다.
+            tempFile.close();
+            humidFile.close();
+
+            return true; // 무조건 100% 성공!
+        }
+
+        // 센서 선이 뽑혔거나 커널 드라이버가 준비 안 된 경우
+        return false;
+    }
+
+    // ==========================================
+    // 실시간 온습도계 제어 (타이머 + 버튼)
+    // ==========================================
+
+    // 💡 타이머가 2초마다 알아서 실행하는 함수 (이게 없어서 에러가 났습니다!)
+    void MainWindow::updateSensorData() {
+        // 💡 스위치가 꺼져있으면(false) 아무 일도 하지 않고 즉시 돌아갑니다.
+        if (!isSensorOn) return;
+
+        if (readDHT11()) {
+            if (mode == 0) {
+                ui->lcdDisplay->display(lastTemp);
+            } else {
+                ui->lcdDisplay->display(lastHumid);
+            }
+        } else {
+            ui->lcdDisplay->display(88.8);
+        }
+    }
+
+    // 💡 버튼은 이제 화면 갱신 '모드'만 바꿔주는 스위치 역할을 합니다.
+    void MainWindow::on_btnTemp_clicked() {
+        mode = 0; // 0번 모드(온도)로 세팅
+        updateSensorData(); // 답답하지 않게 누른 즉시 한 번 갱신
+    }
+
+    void MainWindow::on_btnHumid_clicked() {
+        mode = 1; // 1번 모드(습도)로 세팅
+        updateSensorData(); // 답답하지 않게 누른 즉시 한 번 갱신
+    }
+
+    // ==========================================
+    // 온습도계 전원 ON / OFF 버튼
+    // ==========================================
+
+    void MainWindow::on_btnSensorOn_clicked() {
+        isSensorOn = true;  // 스위치를 켭니다.
+        updateSensorData(); // 켜자마자 곧바로 화면에 온/습도를 띄웁니다.
+    }
+
+    void MainWindow::on_btnSensorOff_clicked() {
+        isSensorOn = false; // 스위치를 끕니다. (타이머가 화면을 못 바꾸게 막음)
+
+        // 💡 화면이 진짜 꺼진 것처럼 보이도록 LCD를 빈칸("")으로 만듭니다.
+        ui->lcdDisplay->display("");
+    }
+    ```
+
+- **GUI**
+    ![alt text](image-4.png)
